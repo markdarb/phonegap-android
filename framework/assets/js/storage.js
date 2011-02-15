@@ -302,14 +302,20 @@ var CupcakeLocalStorage = function() {
 
 			this.db = openDatabase('localStorage', '1.0', 'localStorage', 2621440);	
 			var storage = {};
+			this.length = 0;
+			function setLength (length) {
+				this.length = length;
+				localStorage.length = length;
+			}
 			this.db.transaction(
 				function (transaction) {
 					transaction.executeSql('CREATE TABLE IF NOT EXISTS storage (id NVARCHAR(40) PRIMARY KEY, body NVARCHAR(255))');
 					transaction.executeSql('SELECT * FROM storage', [], function(tx, result) {
-	                    for(var i = 0; i < result.rows.length; i++) {
+						for(var i = 0; i < result.rows.length; i++) {
 							storage[result.rows.item(i)['id']] =  result.rows.item(i)['body'];
 						}
-	                    PhoneGap.initializationComplete("cupcakeStorage");
+						setLength(result.rows.length);
+						PhoneGap.initializationComplete("cupcakeStorage");
 					});
 					
 				}, 
@@ -318,13 +324,13 @@ var CupcakeLocalStorage = function() {
 				}
 			);
 			this.setItem = function(key, val) {
-				//console.log('set');
+				if (typeof(storage[key])=='undefined') {
+					this.length++;
+				}
 				storage[key] = val;
-				
 				this.db.transaction(
 					function (transaction) {
 						transaction.executeSql('CREATE TABLE IF NOT EXISTS storage (id NVARCHAR(40) PRIMARY KEY, body NVARCHAR(255))');
-						
 						transaction.executeSql('REPLACE INTO storage (id, body) values(?,?)', [key,val]);
 					}
 				);
@@ -334,10 +340,10 @@ var CupcakeLocalStorage = function() {
 			}
 			this.removeItem = function(key) {
 				delete storage[key];
+				this.length--;
 				this.db.transaction(
 					function (transaction) {
 						transaction.executeSql('CREATE TABLE IF NOT EXISTS storage (id NVARCHAR(40) PRIMARY KEY, body NVARCHAR(255))');
-						
 						transaction.executeSql('DELETE FROM storage where id=?', [key]);
 					}
 				);
@@ -345,15 +351,26 @@ var CupcakeLocalStorage = function() {
 			}
 			this.clear = function() {
 				storage = {};
+				this.length = 0;
 				this.db.transaction(
 					function (transaction) {
 						transaction.executeSql('CREATE TABLE IF NOT EXISTS storage (id NVARCHAR(40) PRIMARY KEY, body NVARCHAR(255))');
-						
 						transaction.executeSql('DELETE FROM storage', []);
 					}
 				);
 			}
-				
+			this.key = function(index) {
+				var i = 0;
+				for (var j in storage) {
+					if (i==index) {
+						return j;
+					} else {
+						i++;
+					}
+				}
+				return null;
+			}
+
 		} catch(e) {
 			alert("Database error "+e+".");
 		    return;
